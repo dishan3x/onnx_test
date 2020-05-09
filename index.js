@@ -14,7 +14,7 @@ async function runExample() {
   // Create an ONNX inference session with default backend.
   const session = new onnx.InferenceSession();
   // Load an ONNX model. This model is Resnet50 that takes a 1*3*224*224 image and classifies it.
-  await session.loadModel("./add.onnx");
+  await session.loadModel("https://raw.githubusercontent.com/dishan3x/onnx_test/master/add.onnx");
 
   const x = new Float32Array(3 * 4 * 5).fill(1);
   const y = new Float32Array(3 * 4 * 5).fill(2);
