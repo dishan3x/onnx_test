@@ -11,11 +11,21 @@ async function loadModel(){
 
 }
 async function runExample() {
+  console.log("working");
   // Create an ONNX inference session with default backend.
   const session = new onnx.InferenceSession();
+  console.log("working");
+  console.log("https://github.com/Microsoft/onnxjs/issues/58");
+  console.log("https://stackoverflow.com/questions/19705972/buffer-entire-file-in-memory-with-nodejs");
   // Load an ONNX model. This model is Resnet50 that takes a 1*3*224*224 image and classifies it.
-  await session.loadModel("https://raw.githubusercontent.com/dishan3x/onnx_test/master/add.onnx");
+  var onnxData  = fs.readFile('./add.onnx', 'utf8', function(err, data) {
+    if (err) throw err;
+    console.log(data);
+ });
 
+  await session.loadModel("./add.onnx");
+  //await session.loadModel(data);
+  console.log("working");
   const x = new Float32Array(3 * 4 * 5).fill(1);
   const y = new Float32Array(3 * 4 * 5).fill(2);
   const tensorX = new onnx.Tensor(x, 'float32', [3, 4, 5]);
@@ -38,3 +48,5 @@ async function runExample() {
   predictions.innerHTML = `Got an Tensor of size ${outputData.data.length} with all elements being ${outputData.data[0]}`;
 
 }
+
+
