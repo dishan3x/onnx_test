@@ -1,17 +1,276 @@
 <html>
-<head>
-  <script src="https://cdn.jsdelivr.net/npm/onnxjs/dist/onnx.min.js"></script>
-<script src="index.js"></script>  
-<script src="add.onnx"></script>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Canopeo</title>
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
+    <!--  <link rel="stylesheet" href="css/Custom.css" /> -->
+    <link rel="stylesheet" href="css/materialize.min.css" />
+    <link rel="stylesheet" href="css/fontawesome/all.css" />
 </head>
-<body>
-  <h1>Tensor-Add Example</h1>
-  <p>Tensor 1: dims=[3,4,5], initialized to: 1's</p>
-  <p>Tensor 2: dims=[3,4,5], initialized to: 2's</p>
-  <div><input type="button" value="Run" onclick="runExample()"/></div>
 
-  <div id="predictions">
+  <body>
 
-  </div>
-</body>
+    <header>
+        <!--   Navigation Bar    -->
+
+        <nav class="navbar ">
+            <div class="nav-wrapper">
+                  <label class="button navBarLabels" id="btn-upload-label" style="margin:5px;" >
+                      <i id="camera-icon" class="fa fa-camera-retro fa-4x" aria-hidden="true"></i>
+                      <span class="is-hidden-mobile" style="padding-left: 10px;"><strong class="navTags"><!--Load images--></strong></span>
+                  </label>
+                  <label id="index-header">Onnx checker</label>
+            </div> 
+        </nav>
+
+   </header> 
+
+
+  <div id="predictions"></div>
+
+  
+  <script src="libraries/ndarray-browser-min.js"></script>
+  <script src="libraries/imagenet.js"></script>
+  <script src="libraries/image-loader.js"></script>
+  <script src="libraries/p5/p5.js"></script> 
+
+  <!-- Load ONNX.js -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxjs/dist/onnx.min.js"></script>
+  <!-- Loading numpy array to test -->
+  <script src="https://cdn.jsdelivr.net/gh/nicolaspanel/numjs@0.15.1/dist/numjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
+ </body>
 </html>
+
+
+<script>
+
+function setup() {
+
+    // Upload button
+    btnUpload = createFileInput(predictImage,'multiple'); //p5
+    btnUpload.style('display','none');
+    btnUpload.parent("btn-upload-label");
+
+} 
+
+
+async function predictImage(file){
+
+  if (file.type === 'image'){
+
+    console.log(file);
+
+      loadImage(file.data,async function(imgOriginal){
+
+          const session = new onnx.InferenceSession({ backendHint: 'webgl' });
+          console.log("Loading the onnx model");
+
+         // canopy finder 
+         // await session.loadModel("./models/canopy_residue_finder.onnx");
+
+         // A simple network segnet work based on the matlab 
+          await session.loadModel("./models/dishan_segnet_v2.onnx");
+        
+          // Full segnet 45 layered network
+        //  await session.loadModel("./models/dishan_made_segnetLayer_model.onnx");
+          
+          console.log("Onnx model loaded");
+          // Load image for canopy finder
+         imageSize = 256;
+
+          // Load dishan_segnet
+          //imageSize = 256;
+        
+         /*  var  imageArray= nj.array(imgOriginal.pixels,Int32Array);
+          console.log("imageArray.shape",imageArray);
+          numpy_changed = imageArray.reshape(1,3,width,height);
+          console.log("imageArray.shape",numpy_changed); */
+          
+           
+          imgOriginal.loadPixels();
+
+        
+          imgGenerated  = createImage(imgOriginal.width,imgOriginal.height);
+          console.log("img",imgOriginal.width);
+          console.log("img",imgOriginal.height);
+          console.log("hi");
+          console.log("hi");
+
+          // this is important
+          imgGenerated.loadPixels();
+
+          // preprocess the image data to match input dimension requirement, which is 1*3*224*224
+          // Testing pixels
+          for(let y=0; y<imgGenerated.height; y++){
+                    for(let x=0; x<imgGenerated.width; x++){
+                        //console.log(x);
+                        //console.log(y);
+                        let index = (x + y * imgGenerated.width)*4;
+                        //console.log("index",index);
+                        imgGenerated.pixels[index+0] = 111;
+                        if(index<131072){
+                          imgGenerated.pixels[index+0] = 255;
+
+                        }else{
+                          imgGenerated.pixels[index+0] = 0;
+
+                        }
+                    }
+          }
+          imgGenerated.pixels[262141] = 46;
+          imgGenerated.pixels[262142] = 46;
+          imgGenerated.pixels[262143] = 46;
+          imgGenerated.pixels[262143] = 46; 
+
+          imgGenerated.updatePixels();
+
+
+
+          imgGenerated_id ="image_generated_id";
+
+          image_constructed = createImg(imgGenerated.canvas.toDataURL(),'classified image');
+          image_constructed.size(imgGenerated.width,imgGenerated.height);
+          image_constructed.id(imgGenerated_id);
+         
+          // Preprocess the image data to match input dimension requirement, which is 1*3*224*224.
+          const width = imageSize;
+          const height = imageSize;
+
+          const preprocessedData = preprocess(imgOriginal.pixels, width, height);
+          console.log(imgOriginal.pixels);
+   
+          // Creating the tensor for the input
+          const inputTensor = new onnx.Tensor(preprocessedData, 'float32', [1, 3, width, height]);
+
+
+
+          //*****************************************************************
+          // Run model with Tensor inputs and get the result.
+          //***************************************************************
+          const outputMap = await session.run([inputTensor]);
+          console.log(outputMap);
+
+
+          //*****************************************************************
+          // Output handle
+          //***************************************************************
+          const outputData = outputMap.values().next().value.data;
+          console.log("outputfrommap",outputData);
+
+          //Trying with nd array 
+          // Didnt work 
+          const outPutDataReformated = ndarray(new Float32Array(outputData), [1,4,256, 256]);
+  
+          //
+          localStorage.setItem("dishan_output",outPutDataReformated);
+          // dimentions (1, 4, 256, 256)
+          console.log("picked",outputData[0]);
+          console.log("picked",outPutDataReformated[0,0,0,0]);
+
+          // Trying with a nump array 
+          // hmmmmmm 
+
+          // Custom made array 
+          test_array = nj.arange(262144).reshape(256,256,4);
+
+          var a = nj.array(outputData);
+          console.log("picked",a);
+          console.log("res",a.reshape(256,256,4,1));
+          //console.log("picked",a(0,0,0));
+            
+          counter = 0;
+
+          for(let y=0; y<256; y++){
+                    for(let x=0; x<256; x++){
+                        for(let i=0; i<4; i++)
+                        {
+                        test_array[y][x][i] = outputData[counter]
+                        counter = counter + 1 ;
+                       }
+                    
+                    }
+          }
+
+       
+          //printImage(outputData,imageSize);
+
+          // Creating an empty array 
+
+         
+         //############################################ Another way using nparray ##########################
+      /*     var  imageArray= nj.array(imgOriginal,Int32Array);
+          console.log("imageArray.shape",imageArray);
+          numpy_changed = imageArray.reshape(1,3,512,512);
+          console.log("imageArray.shape",numpy_changed);
+
+         // var  np_output = ndarray(new Float32Array(outputData))
+          //console.log(np_output.shape());
+          console.log("out",outputData);
+          var a = nj.array(outputData);
+          console.log("a",a);
+          numpy_reshaped = a.reshape(width,height,4);
+          console.log("numpy_reshaped",numpy_reshaped);
+          console.log(numpy_reshaped.data);
+          arrayCreated = numpy_reshaped.selection.data; 
+          console.log(arrayCreated[0][0][1]);
+
+          const ndarrayStyle = ndarray(new Float32Array(outputData), [width, height, 4]);
+          console.log("ndarrayStyle",ndarrayStyle);
+          console.log("ndarrayStylepick",ndarrayStyle.pick(0,0)); */
+          //process  = preprocess(outputData,,);
+          //console.log("ndrr",ndarrayStyle);
+          
+          // Render the output result in html.
+          /* printMatches(outputData); */
+
+        });
+
+    }else{
+            alert("Not an image file");
+    } 
+}
+
+
+function preprocess(data, width, height) {
+
+ // const dataFromImage = ndarray(new Float32Array(data), [width, height, 3]);
+  const dataFromImage = ndarray(new Float32Array(data), [width, height, 3]);
+  const dataProcessed = ndarray(new Float32Array(width * height * 3), [1, 3, height, width]);
+
+  // Realign imageData from [224*224*3] to the correct dimension [1*3*256*256].
+  ndarray.ops.assign(dataProcessed.pick(0, 0, null, null), dataFromImage.pick(null, null, 2));
+  ndarray.ops.assign(dataProcessed.pick(0, 1, null, null), dataFromImage.pick(null, null, 1));
+  ndarray.ops.assign(dataProcessed.pick(0, 2, null, null), dataFromImage.pick(null, null, 0));
+
+  console.log("test 1 picked",dataFromImage.pick(0, 0, null, null));
+  console.log("test 2 picked",dataProcessed.pick(0, 0, null, null));
+  console.log("test 3 picked",dataProcessed.pick(0, 0, null, null));
+
+  return dataProcessed.data;
+}
+
+
+
+function printImage(resultData,imagesize){
+
+  width = imagesize;
+  height= imagesize;
+
+  const dataFromImage = ndarray(new Float32Array(resultData), [width, height, 3]);
+  
+  resultImage = createImage(width,height);
+  resultImage.loadPixels();
+
+  resultImage = createImg(resultData.canvas.toDataURL());
+  resultImage.size(imagesize,imagesize);
+  resultImage.id(imgOriginalId);
+  resultImage.parent(orignalImage);
+  resultImage.addClass('analysedImagesTag');
+}
+
+
+
+</script>
